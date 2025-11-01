@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch API (Delve)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/cmd/api",
+      "env": {
+        "DB_ADDR": "postgres://postgres:Test1234@localhost:5432/postgres_db?sslmode=disable",
+        "ADDR": ":8080"
+      },
+      "buildFlags": "-gcflags \"all=-N -l\"",
+      "args": [],
+      "showLog": true
+    }
+  ]
+}

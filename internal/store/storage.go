@@ -1,0 +1,51 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"time"
+)
+
+var (
+	QueryTimeOutDuration = 5 * time.Second
+)
+
+type Storage struct {
+	Posts interface {
+		Create(context.Context, *Post) error
+		GetByID(context.Context, int32) (*Post, error)
+		DeletePostByID(context.Context, int32) error
+		UpdatePost(context.Context, *Post) error
+		GetUserFeed(context.Context, int, *PaginationFeedQuery) ([]PostWithMetadata, error)
+	}
+	Users interface {
+		Create(context.Context, *sql.Tx, *Users) error
+		GetByID(context.Context, int64) (*Users, error)
+		CreateAndInvite(ctx context.Context, user *Users, token string, invitationExp time.Duration) error
+	}
+	Comments interface {
+		GetCommentsByPostID(context.Context, int32) ([]*Comments, error)
+	}
+}
+
+func NewPostgresStorage(db *sql.DB) Storage {
+	return Storage{
+		Posts:    &PostStore{db: db},
+		Users:    &UsersStorage{db: db},
+		Comments: &CommentsStore{db: db},
+	}
+}
+
+func withTx(ctx context.Context, db *sql.DB, fn func(*sql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	if err := fn(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
+}
