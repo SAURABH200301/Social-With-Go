@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/SAURABH200301/Social/cmd/docs"
+	"github.com/SAURABH200301/Social/internal/auth"
+	"github.com/SAURABH200301/Social/internal/mailer"
 	"github.com/SAURABH200301/Social/internal/store"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -17,9 +19,11 @@ import (
 )
 
 type application struct {
-	config config
-	store  store.Storage
-	logger *zap.SugaredLogger
+	config        config
+	store         store.Storage
+	logger        *zap.SugaredLogger
+	mailer        mailer.Client
+	Authonticator auth.Authenicator
 }
 type dbConfig struct {
 	addr         string
@@ -28,14 +32,38 @@ type dbConfig struct {
 	maxIdleTime  string
 }
 type config struct {
-	addr   string
-	db     dbConfig
-	env    string
-	apiURL string
-	mail   mailConfig
+	addr        string
+	db          dbConfig
+	env         string
+	apiURL      string
+	mail        mailConfig
+	frontendURL string
+	auth        authConfig
 }
+
+type authConfig struct {
+	basic basicConfig
+	token tokenConfig
+}
+
+type tokenConfig struct {
+	secret string
+	exp    time.Duration
+	iss    string
+}
+
+type basicConfig struct {
+	user string
+	pass string
+}
+
 type mailConfig struct {
 	invitationExp time.Duration
+	fromEmail     string
+	sendGrid      sendGridConfig
+}
+type sendGridConfig struct {
+	apiKey string
 }
 
 func (app *application) mount() http.Handler {
@@ -50,7 +78,7 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.Timeout(60 * time.Second))
 
 	r.Route("/v1", func(r chi.Router) {
-		r.Get("/health", app.healthCheckHandler)
+		r.With(app.BasicAuthMiddleware()).Get("/health", app.healthCheckHandler)
 
 		host := "http://" + app.config.apiURL
 		if host == "" {
@@ -75,6 +103,7 @@ func (app *application) mount() http.Handler {
 
 		//v1/posts endpoints
 		r.Route("/posts", func(r chi.Router) {
+			r.Use(app.AuthTokenMiddleware)
 			r.Post("/", app.createPostHandler)
 
 			r.Route("/{postID}", func(r chi.Router) {
@@ -88,8 +117,11 @@ func (app *application) mount() http.Handler {
 			})
 		})
 		r.Route("/users", func(r chi.Router) {
-			r.Route("/{userID}", func(r chi.Router) {
 
+			r.Put("/activate/{token}", app.activateUserHandler)
+
+			r.Route("/{userID}", func(r chi.Router) {
+				r.Use(app.AuthTokenMiddleware)
 				//INTERNAL ROUTES
 				r.Get("/", app.getUserHandler)
 				// r.Put("/follow", app.followUserHandler)
@@ -97,12 +129,14 @@ func (app *application) mount() http.Handler {
 			})
 
 			r.Group(func(r chi.Router) {
+				r.Use(app.AuthTokenMiddleware)
 				r.Get("/feed", app.getUserFeedHandler)
 			})
 
 		})
 		r.Route("/authenticate", func(r chi.Router) {
 			r.Post("/user", app.registerUserHandler)
+			r.Post("/token", app.createTokenHandler)
 		})
 	})
 

@@ -14,6 +14,35 @@ definitions:
     - content
     - title
     type: object
+  main.CreateUserTokenPayload:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        maxLength: 72
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  main.RegisterUserPayload:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        maxLength: 30
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
   main.UpdatePayload:
     properties:
       content:
@@ -105,6 +134,8 @@ definitions:
         type: string
       id:
         type: integer
+      is_active:
+        type: boolean
       username:
         type: string
     type: object
@@ -120,6 +151,62 @@ info:
   termsOfService: http://swagger.io/terms/
   title: SocialWithGO API
 paths:
+  /authenticate/token:
+    post:
+      consumes:
+      - application/json
+      description: Creates a token for user
+      parameters:
+      - description: User credentials
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.CreateUserTokenPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: token
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema: {}
+        "500":
+          description: Internal Server Error
+          schema: {}
+      summary: Creats a token
+      tags:
+      - Authentication
+  /authenticate/user:
+    post:
+      consumes:
+      - application/json
+      description: Registers a new user with the provided details.
+      parameters:
+      - description: User registration details
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/main.RegisterUserPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/main.errorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/main.errorResponse'
+      summary: Register a new user
+      tags:
+      - Authentication
   /feeds:
     get:
       consumes:
@@ -325,6 +412,29 @@ paths:
           schema:
             $ref: '#/definitions/main.errorResponse'
       summary: Get User by ID
+      tags:
+      - Users
+  /users/activate/{token}:
+    put:
+      description: Activates a user account using the provided activation token.
+      parameters:
+      - description: Activation Token
+        in: path
+        name: token
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/main.errorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/main.errorResponse'
+      summary: Activate a user account
       tags:
       - Users
 securityDefinitions:

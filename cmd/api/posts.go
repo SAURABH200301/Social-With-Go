@@ -17,6 +17,7 @@ type CreatePostPayload struct {
 }
 
 // Create Post Handler
+//
 //	@Summary		Create a new post
 //	@Description	Creates a new post with the provided content, title, and optional tags.
 //	@Tags			Posts
@@ -38,14 +39,14 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 		app.badRequestResponse(w, r, err)
 		return
 	}
-	// uid, ok := r.Context().Value("userID").(int64)
-	// if !ok {
-	// 	_ = writeErrorJSON(w, http.StatusUnauthorized, "missing user id")
-	// 	return
-	// }
+	uid, ok := r.Context().Value("userID").(int64)
+	if !ok {
+		_ = writeErrorJSON(w, http.StatusUnauthorized, "missing user id")
+		return
+	}
 
 	post := store.Post{
-		UserID:    1,
+		UserID:    uid,
 		Content:   postPayload.Content,
 		Title:     postPayload.Title,
 		CreatedAt: time.Now().Format(time.RFC3339),
@@ -64,6 +65,7 @@ func (app *application) createPostHandler(w http.ResponseWriter, r *http.Request
 }
 
 // Get Post Handler
+//
 //	@Summary		Get a post by ID
 //	@Description	Retrieves a post by its ID, including associated comments.
 //	@Tags			Posts
@@ -95,6 +97,7 @@ func (app *application) getPostHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete Post Handler
+//
 //	@Summary		Delete a post by ID
 //	@Description	Deletes a post by its ID.
 //	@Tags			Posts
@@ -127,6 +130,7 @@ type UpdatePayload struct {
 }
 
 // Update Post Handler
+//
 //	@Summary		Update a post by ID
 //	@Description	Updates a post's title, content, and/or tags by its ID.
 //	@Tags			Posts
