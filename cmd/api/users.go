@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
+	"github.com/SAURABH200301/Social/internal/store"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -40,6 +42,7 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Activate User Handler
+//
 //	@Summary		Activate a user account
 //	@Description	Activates a user account using the provided activation token.
 //	@Tags			Users
@@ -59,4 +62,27 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 		app.internalServerError(w, r, err)
 		return
 	}
+}
+
+func (app *application) userContextMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userID, err := strconv.ParseInt(chi.URLParam(r, "UserID"), 10, 64)
+		if err != nil {
+			app.badRequestResponse(w, r, err)
+			return
+		}
+		ctx := r.Context()
+		user, err := app.store.Users.GetByID(ctx, userID)
+		if err != nil {
+			app.notFoundResponse(w, r, err)
+			return
+		}
+		ctx = context.WithValue(ctx, "user", user)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func getUserFromCtx(r *http.Request) *store.Users {
+	user, _ := r.Context().Value("user").(*store.Users)
+	return user
 }

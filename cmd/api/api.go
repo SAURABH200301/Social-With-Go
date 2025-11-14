@@ -112,8 +112,8 @@ func (app *application) mount() http.Handler {
 
 				//INTERNAL ROUTES
 				r.Get("/", app.getPostHandler)
-				r.Patch("/", app.updatePostHandler)
-				r.Delete("/", app.deletePostHandler)
+				r.Patch("/", app.checkPostOwnershipMiddleware("moderator", app.updatePostHandler))
+				r.Delete("/", app.checkPostOwnershipMiddleware("moderator", app.deletePostHandler))
 			})
 		})
 		r.Route("/users", func(r chi.Router) {

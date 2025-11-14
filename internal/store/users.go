@@ -18,6 +18,8 @@ type Users struct {
 	Password  password `json:"-"`
 	CreatedAt string   `json:"created_at"`
 	IsActive  bool     `json:"is_active"`
+	RoleID    int64    `json:"role_id"`
+	Role      Role     `json:"role"`
 }
 
 type password struct {
@@ -43,12 +45,12 @@ type UsersStorage struct {
 }
 
 func (s *UsersStorage) Create(ctx context.Context, tx *sql.Tx, user *Users) error {
-	query := `INSERT INTO users (username, email, password, created_at) 
-			VALUES ($1, $2, $3, NOW()) RETURNING id, created_at`
+	query := `INSERT INTO users (username, email, password,role_id, created_at) 
+			VALUES ($1, $2, $3, (SELECT id FROM roles WHERE name = $4), NOW()) RETURNING id, created_at`
 
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeOutDuration)
 	defer cancel()
-	err := tx.QueryRowContext(ctx, query, user.Username, user.Email, user.Password.hash).Scan(&user.ID, &user.CreatedAt)
+	err := tx.QueryRowContext(ctx, query, user.Username, user.Email, user.Password.hash, user.Role.Name).Scan(&user.ID, &user.CreatedAt)
 	return err
 }
 func (s *UsersStorage) updateUser(ctx context.Context, tx *sql.Tx, user *Users) error {
@@ -60,11 +62,15 @@ func (s *UsersStorage) updateUser(ctx context.Context, tx *sql.Tx, user *Users) 
 }
 
 func (s *UsersStorage) GetByID(ctx context.Context, id int64) (*Users, error) {
-	query := `SELECT id, username, email, created_at FROM users WHERE id = $1 AND is_active = true`
+	query := `
+		SELECT users.id, username, email, created_at, roles.*
+		FROM users 
+		JOIN roles ON (users.role_id = roles.id)
+		WHERE users.id = $1 AND is_active = true`
 	row := s.db.QueryRowContext(ctx, query, id)
 
 	var user Users
-	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt)
+	err := row.Scan(&user.ID, &user.Username, &user.Email, &user.CreatedAt, &user.Role.ID, &user.Role.Description, &user.Role.Name, &user.Role.Level)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("user with ID %d not found", id)

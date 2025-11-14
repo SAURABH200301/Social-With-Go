@@ -8,6 +8,7 @@ import (
 	"time"
 
 	sendGridGo "github.com/sendgrid/sendgrid-go"
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
 
 type SendGridMailer struct {
@@ -17,17 +18,17 @@ type SendGridMailer struct {
 }
 
 func NewSendGridMailer(fromEmail, apiKey string) *SendGridMailer {
-	Client := sendGridGo.NewSendClient(apiKey)
+	client := sendGridGo.NewSendClient(apiKey)
 	return &SendGridMailer{
 		fromEmail: fromEmail,
 		apiKey:    apiKey,
-		client:    Client,
+		client:    client,
 	}
 }
 
 func (sg *SendGridMailer) Send(templateFile, username, email string, data any, isSandbox bool) error {
-	from := sendGridGo.NewEmail(FromName, sg.fromEmail)
-	to := sendGridGo.NewEmail(username, email)
+	from := mail.NewEmail(FromName, sg.fromEmail)
+	to := mail.NewEmail(username, email)
 
 	//template parsing and building
 
@@ -37,7 +38,7 @@ func (sg *SendGridMailer) Send(templateFile, username, email string, data any, i
 	}
 
 	subject := new(bytes.Buffer)
-	err := tmpl.ExecuteTemplate(subject, "subject", data)
+	err = tmpl.ExecuteTemplate(subject, "subject", data)
 	if err != nil {
 		return fmt.Errorf("failed to execute subject template for %s: %v", email, err)
 	}
@@ -48,12 +49,12 @@ func (sg *SendGridMailer) Send(templateFile, username, email string, data any, i
 		return fmt.Errorf("failed to execute body template for %s: %v", email, err)
 	}
 
-	message := sendGridGo.NewSingleEmail(from, subject.String(), to, "", body.String())
+	message := mail.NewSingleEmail(from, subject.String(), to, "", body.String())
 
 	//sandbox mode == dev
-	message.SetMailSettings(&sendGridGo.MailSettings{
-		SandboxMode: &sendGridGo.SandboxMode{
-			Enable: isSandbox,
+	message.SetMailSettings(&mail.MailSettings{
+		SandboxMode: &mail.Setting{
+			Enable: &isSandbox,
 		},
 	})
 	var retryErr error
