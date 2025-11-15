@@ -29,7 +29,7 @@ func (app *application) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	user, err := app.store.Users.GetByID(ctx, int64(userID))
+	user, err := app.cacheStorage.Users.Get(ctx, userID)
 	if err != nil {
 		app.internalServerError(w, r, err)
 		return

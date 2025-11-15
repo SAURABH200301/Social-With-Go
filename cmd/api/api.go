@@ -1,16 +1,21 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/SAURABH200301/Social/cmd/docs"
 	"github.com/SAURABH200301/Social/internal/auth"
 	"github.com/SAURABH200301/Social/internal/mailer"
 	"github.com/SAURABH200301/Social/internal/store"
+	"github.com/SAURABH200301/Social/internal/store/cache"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
@@ -21,6 +26,7 @@ import (
 type application struct {
 	config        config
 	store         store.Storage
+	cacheStorage  cache.Storage
 	logger        *zap.SugaredLogger
 	mailer        mailer.Client
 	Authonticator auth.Authenicator
@@ -39,6 +45,14 @@ type config struct {
 	mail        mailConfig
 	frontendURL string
 	auth        authConfig
+	redisCfg    redisConfig
+}
+
+type redisConfig struct {
+	addr    string
+	pw      string
+	db      int
+	enabled bool
 }
 
 type authConfig struct {
@@ -156,6 +170,31 @@ func (app *application) run(mux http.Handler) error {
 		ReadTimeout:  time.Second * 10, // Server will read a request in 10 seconds
 		IdleTimeout:  time.Minute,      // Server will idle for 1 minute
 	}
+
+	shutdown := make(chan error)
+
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		s := <-quit
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		app.logger.Infow("signal caught", "signal", s.String())
+
+		shutdown <- srv.Shutdown(ctx)
+	}()
+
 	app.logger.Infow("Starting server", "addr", app.config.addr, "env", app.config.env)
-	return srv.ListenAndServe()
+
+	err := srv.ListenAndServe()
+	if !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	err = <-shutdown
+	if err != nil {
+		return err
+	}
+	app.logger.Infow("Stopped server", "addr", app.config.addr, "env", app.config.env)
+	return nil
 }
