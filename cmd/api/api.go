@@ -13,12 +13,14 @@ import (
 
 	"github.com/SAURABH200301/Social/cmd/docs"
 	"github.com/SAURABH200301/Social/internal/auth"
+	"github.com/SAURABH200301/Social/internal/env"
 	"github.com/SAURABH200301/Social/internal/mailer"
 	"github.com/SAURABH200301/Social/internal/ratelimiter"
 	"github.com/SAURABH200301/Social/internal/store"
 	"github.com/SAURABH200301/Social/internal/store/cache"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"go.uber.org/zap"
 
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -91,6 +93,16 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
+
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{env.GetString("CORS_ALLOWED_ORIGIN", "http://localhost:3000")},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: false,
+		MaxAge:           300,
+	}))
+
 	r.Use(app.RateLimiterMiddleware)
 
 	r.Use(middleware.Timeout(60 * time.Second))
