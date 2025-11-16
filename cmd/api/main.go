@@ -7,6 +7,7 @@ import (
 	"github.com/SAURABH200301/Social/internal/db"
 	"github.com/SAURABH200301/Social/internal/env"
 	"github.com/SAURABH200301/Social/internal/mailer"
+	"github.com/SAURABH200301/Social/internal/ratelimiter"
 	"github.com/SAURABH200301/Social/internal/store"
 	"github.com/SAURABH200301/Social/internal/store/cache"
 	"github.com/redis/go-redis/v9"
@@ -68,6 +69,11 @@ func main() {
 				iss:    "socialwithgo",
 			},
 		},
+		rateLimiter: ratelimiter.Config{
+			RequestsPerTimeFrame: env.GetInt("RATELIMITING_REQUESTS_COUNT", 20),
+			TimeFrame:            5 * time.Second,
+			Enabled:              env.GetBool("RATE_LIMITER_ENABLED", true),
+		},
 	}
 
 	//Logger
@@ -88,6 +94,13 @@ func main() {
 		rdb = cache.NewRedisClient(cfg.redisCfg.addr, cfg.redisCfg.pw, cfg.redisCfg.db)
 		logger.Info("Redis connection established")
 	}
+
+	//ratelimiting
+	rateLimiter := ratelimiter.NewFixedWindowRateLimiter(
+		cfg.rateLimiter.RequestsPerTimeFrame,
+		cfg.rateLimiter.TimeFrame,
+	)
+
 	cacheStorage := cache.NewRedisStorage(rdb)
 
 	logger.Info("Database connection pool established")
@@ -107,6 +120,7 @@ func main() {
 		logger:        logger,
 		mailer:        mailerClient,
 		Authonticator: JWTAuthenicator,
+		rateLimiter:   rateLimiter,
 	}
 
 	mux := app.mount()

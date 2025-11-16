@@ -14,6 +14,7 @@ import (
 	"github.com/SAURABH200301/Social/cmd/docs"
 	"github.com/SAURABH200301/Social/internal/auth"
 	"github.com/SAURABH200301/Social/internal/mailer"
+	"github.com/SAURABH200301/Social/internal/ratelimiter"
 	"github.com/SAURABH200301/Social/internal/store"
 	"github.com/SAURABH200301/Social/internal/store/cache"
 	"github.com/go-chi/chi/v5"
@@ -30,6 +31,7 @@ type application struct {
 	logger        *zap.SugaredLogger
 	mailer        mailer.Client
 	Authonticator auth.Authenicator
+	rateLimiter   ratelimiter.Limiter
 }
 type dbConfig struct {
 	addr         string
@@ -46,6 +48,7 @@ type config struct {
 	frontendURL string
 	auth        authConfig
 	redisCfg    redisConfig
+	rateLimiter ratelimiter.Config
 }
 
 type redisConfig struct {
@@ -88,6 +91,7 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
+	r.Use(app.RateLimiterMiddleware)
 
 	r.Use(middleware.Timeout(60 * time.Second))
 
